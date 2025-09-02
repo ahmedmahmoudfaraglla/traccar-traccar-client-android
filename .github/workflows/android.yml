@@ -1,47 +1,43 @@
-name: Build Traccar Client APK
+name: CI: build Android debug APK
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 40
 
-      # JDK 17 (المطلوب لنسخ AGP الحديثة)
-      - name: Set up JDK 17
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 11
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '11'
           cache: gradle
 
-      # Android cmdline-tools + ANDROID_SDK_ROOT
-      - name: Set up Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ثبّت الـ SDK components المطابقة لأغلب إصدارات Traccar Client
-      - name: Install SDK components
+      - name: Install SDK packages + accept licenses
         run: |
-          sdkmanager --version
+          COMPILE_SDK=$(grep -Rho "compileSdk\s*[0-9]\+" app/build.gradle* | sed 's/[^0-9]//g' | tail -1 || true)
+          [ -z "$COMPILE_SDK" ] && COMPILE_SDK=34
+          echo "Using compileSdk=$COMPILE_SDK"
+          sdkmanager --install "platform-tools" "build-tools;34.0.0" "platforms;android-$COMPILE_SDK"
           yes | sdkmanager --licenses
-          sdkmanager "platform-tools" \
-                     "platforms;android-34" \
-                     "build-tools;34.0.0" \
-                     "extras;google;m2repository" \
-                     "extras;android;m2repository"
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
 
-      # Build
-      - name: Build debug APK
+      - name: Assemble Debug
         run: ./gradlew --no-daemon clean assembleDebug
 
-      # Artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
