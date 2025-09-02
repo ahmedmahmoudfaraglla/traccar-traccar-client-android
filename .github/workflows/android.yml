@@ -1,4 +1,4 @@
-name: CI: build Android debug APK
+name: ci: android build (jdk17 + sdk + licenses) and upload debug apk
 
 on:
   push:
@@ -8,37 +8,30 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '11'
-          cache: gradle
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
 
-      - name: Setup Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK packages + accept licenses
-        run: |
-          COMPILE_SDK=$(grep -Rho "compileSdk\s*[0-9]\+" app/build.gradle* | sed 's/[^0-9]//g' | tail -1 || true)
-          [ -z "$COMPILE_SDK" ] && COMPILE_SDK=34
-          echo "Using compileSdk=$COMPILE_SDK"
-          sdkmanager --install "platform-tools" "build-tools;34.0.0" "platforms;android-$COMPILE_SDK"
-          yes | sdkmanager --licenses
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses
 
-      - name: Make Gradle wrapper executable
+      - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Assemble Debug
-        run: ./gradlew --no-daemon clean assembleDebug
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: traccar-client-debug
